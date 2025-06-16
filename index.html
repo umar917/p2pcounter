@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  
   <title>P2P Counter</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
@@ -26,6 +25,7 @@
       background: var(--bg-color);
       color: var(--text-color);
       padding: 16px;
+      font-size: 16px;
     }
 
     h1 {
@@ -38,7 +38,7 @@
       margin: auto;
     }
 
-    .controls {
+    .controls, .form, .round-controls {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
@@ -53,29 +53,37 @@
       background-color: var(--card-color);
       color: var(--text-color);
       cursor: pointer;
+      font-size: 16px;
     }
 
     button:hover, select:hover, input:hover {
       background-color: var(--hover);
     }
 
-    table {
+    .round {
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      margin-bottom: 20px;
+      padding: 12px;
+      background: #1a1a1a;
+    }
+
+    .round h3 {
+      margin-top: 0;
+    }
+
+    .round table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 30px;
+      margin-top: 10px;
     }
 
-    th, td {
-      padding: 12px 10px;
+    .round th, .round td {
+      padding: 10px;
       border-bottom: 1px solid var(--border-color);
-      text-align: left;
     }
 
-    th {
-      background: var(--card-color);
-    }
-
-    tr:nth-child(even) {
+    .round tr:nth-child(even) {
       background-color: #191919;
     }
 
@@ -103,36 +111,14 @@
         color: #aaa;
       }
     }
-
-    .form {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .form input, .form select {
-      flex: 1;
-    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Учет P2P-сделок</h1>
 
-    <div class="controls">
-      <div>
-        <label for="typeFilter">Фильтр:</label>
-        <select id="typeFilter">
-          <option value="">Все</option>
-          <option value="buy">Покупка</option>
-          <option value="sell">Продажа</option>
-        </select>
-      </div>
-      <div>
-        <button id="applyFilter">Фильтровать</button>
-        <button id="resetFilter">Сброс</button>
-      </div>
+    <div class="round-controls">
+      <button id="newRound">Открыть новый круг</button>
     </div>
 
     <div class="form">
@@ -147,108 +133,41 @@
       <button id="addDeal">Добавить сделку</button>
     </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Тип</th>
-          <th>Сумма</th>
-          <th>Валюта</th>
-          <th>Цена</th>
-          <th>Примечание</th>
-          <th>Дата</th>
-          <th>Действия</th>
-        </tr>
-      </thead>
-      <tbody id="dealsTable"></tbody>
-    </table>
+    <div id="roundsContainer"></div>
   </div>
-  
+
   <script>
     const tg = window.Telegram.WebApp;
     tg.ready && tg.expand();
 
-    const user = tg.initDataUnsafe?.user;
-    if (user) {
-      document.querySelector('h1').innerText += ` — ${user.first_name}`;
+    let rounds = JSON.parse(localStorage.getItem("rounds") || "[]");
+    let currentRoundId = localStorage.getItem("currentRoundId") || null;
+    let nextDealId = 1;
+
+    function saveRounds() {
+      localStorage.setItem("rounds", JSON.stringify(rounds));
+      localStorage.setItem("currentRoundId", currentRoundId);
     }
 
-    let deals = JSON.parse(localStorage.getItem("deals") || "[]");
-    let nextId = deals.length ? Math.max(...deals.map(d => d.id)) + 1 : 1;
-
-    function saveDeals() {
-      localStorage.setItem("deals", JSON.stringify(deals));
+    function createNewRound() {
+      const id = Date.now();
+      const round = {
+        id,
+        deals: []
+      };
+      rounds.push(round);
+      currentRoundId = id;
+      saveRounds();
+      renderRounds();
     }
 
-    function renderDeals(filterType = "") {
-      const tbody = document.getElementById('dealsTable');
-      tbody.innerHTML = '';
-
-      deals
-        .filter(deal => !filterType || deal.type === filterType)
-        .forEach(deal => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td data-label="ID">${deal.id}</td>
-            <td data-label="Тип">${deal.type === 'buy' ? 'Покупка' : 'Продажа'}</td>
-            <td data-label="Сумма">${deal.amount}</td>
-            <td data-label="Валюта">${deal.currency}</td>
-            <td data-label="Цена">${deal.price}</td>
-            <td data-label="Примечание">${deal.note}</td>
-            <td data-label="Дата">${deal.date}</td>
-            <td data-label="Действия">
-              <button onclick="deleteDeal(${deal.id})">Удалить</button>
-            </td>
-          `;
-          tbody.appendChild(row);
-        });
-    }
-
-    function deleteDeal(id) {
-      deals = deals.filter(deal => deal.id !== id);
-      saveDeals();
-      renderDeals(document.getElementById('typeFilter').value);
-    }
-
-    function addDealFromForm() {
+    function addDeal() {
       const type = document.getElementById("type").value;
       const amount = parseFloat(document.getElementById("amount").value);
       const currency = document.getElementById("currency").value;
       const price = parseFloat(document.getElementById("price").value);
       const note = document.getElementById("note").value;
 
-      if (!amount || !price || !currency) return alert("Заполните все поля");
+      if (!amount  !price  !currency || !currentRoundId) return alert("Заполните все поля и откройте круг");
 
-      const newDeal = {
-        id: nextId++,
-        type,
-        amount,
-        currency,
-        price,
-        note,
-        date: new Date().toLocaleString()
-      };
-
-      deals.push(newDeal);
-      saveDeals();
-      renderDeals(document.getElementById('typeFilter').value);
-
-      document.getElementById("amount").value = "";
-      document.getElementById("price").value = "";
-      document.getElementById("note").value = "";
-    }
-
-    document.getElementById('addDeal').addEventListener('click', addDealFromForm);
-    document.getElementById('applyFilter').addEventListener('click', () => {
-      const filterType = document.getElementById('typeFilter').value;
-      renderDeals(filterType);
-    });
-    document.getElementById('resetFilter').addEventListener('click', () => {
-      document.getElementById('typeFilter').value = '';
-      renderDeals();
-    });
-
-    renderDeals();
-  </script>
-</body>
-</html>
+      const deal
