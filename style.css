@@ -1,0 +1,96 @@
+:root {
+    --bg-color: #121212;
+    --card-color: #1e1e1e;
+    --accent: #4caf50;
+    --text-color: #eee;
+    --border-color: #333;
+    --hover: #2a2a2a;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    padding: 16px;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+}
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+select, button {
+    padding: 10px;
+    border: none;
+    border-radius: 8px;
+    background-color: var(--card-color);
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+button:hover, select:hover {
+    background-color: var(--hover);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 30px;
+}
+
+th, td {
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+}
+
+th {
+    background: var(--card-color);
+}
+
+tr:nth-child(even) {
+    background-color: #191919;
+}
+
+@media (max-width: 768px) {
+    table, thead, tbody, th, td, tr {
+        display: block;
+    }
+
+    thead {
+        display: none;
+    }
+
+    td {
+        position: relative;
+        padding-left: 50%;
+        border: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 10px;
+        font-weight: bold;
+        color: #aaa;
+    }
+}

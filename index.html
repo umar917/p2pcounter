@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>P2P Counter</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --card-color: #1e1e1e;
+      --accent: #4caf50;
+      --text-color: #eee;
+      --border-color: #333;
+      --hover: #2a2a2a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      padding: 16px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    select, button, input {
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background-color: var(--card-color);
+      color: var(--text-color);
+      cursor: pointer;
+    }
+
+    button:hover, select:hover, input:hover {
+      background-color: var(--hover);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--border-color);
+      text-align: left;
+    }
+
+    th {
+      background: var(--card-color);
+    }
+
+    tr:nth-child(even) {
+      background-color: #191919;
+    }
+
+    @media (max-width: 768px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+      }
+
+      thead {
+        display: none;
+      }
+
+      td {
+        position: relative;
+        padding-left: 50%;
+        border: none;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 10px;
+        font-weight: bold;
+        color: #aaa;
+      }
+    }
+
+    .form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .form input, .form select {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Учет P2P-сделок</h1>
+
+    <div class="controls">
+      <div>
+        <label for="typeFilter">Фильтр:</label>
+        <select id="typeFilter">
+          <option value="">Все</option>
+          <option value="buy">Покупка</option>
+          <option value="sell">Продажа</option>
+        </select>
+      </div>
+      <div>
+        <button id="applyFilter">Фильтровать</button>
+        <button id="resetFilter">Сброс</button>
+      </div>
+    </div>
+
+    <div class="form">
+      <select id="type">
+        <option value="buy">Покупка</option>
+        <option value="sell">Продажа</option>
+      </select>
+      <input type="number" id="amount" placeholder="Сумма">
+      <input type="text" id="currency" placeholder="Валюта" value="USDT">
+      <input type="number" id="price" placeholder="Цена">
+      <input type="text" id="note" placeholder="Примечание">
+      <button id="addDeal">Добавить сделку</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Тип</th>
+          <th>Сумма</th>
+          <th>Валюта</th>
+          <th>Цена</th>
+          <th>Примечание</th>
+          <th>Дата</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="dealsTable"></tbody>
+    </table>
+  </div>
+  
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready && tg.expand();
+
+    const user = tg.initDataUnsafe?.user;
+    if (user) {
+      document.querySelector('h1').innerText += ` — ${user.first_name}`;
+    }
+
+    let deals = JSON.parse(localStorage.getItem("deals") || "[]");
+    let nextId = deals.length ? Math.max(...deals.map(d => d.id)) + 1 : 1;
+
+    function saveDeals() {
+      localStorage.setItem("deals", JSON.stringify(deals));
+    }
+
+    function renderDeals(filterType = "") {
+      const tbody = document.getElementById('dealsTable');
+      tbody.innerHTML = '';
+
+      deals
+        .filter(deal => !filterType || deal.type === filterType)
+        .forEach(deal => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td data-label="ID">${deal.id}</td>
+            <td data-label="Тип">${deal.type === 'buy' ? 'Покупка' : 'Продажа'}</td>
+            <td data-label="Сумма">${deal.amount}</td>
+            <td data-label="Валюта">${deal.currency}</td>
+            <td data-label="Цена">${deal.price}</td>
+            <td data-label="Примечание">${deal.note}</td>
+            <td data-label="Дата">${deal.date}</td>
+            <td data-label="Действия">
+              <button onclick="deleteDeal(${deal.id})">Удалить</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+    }
+
+    function deleteDeal(id) {
+      deals = deals.filter(deal => deal.id !== id);
+      saveDeals();
+      renderDeals(document.getElementById('typeFilter').value);
+    }
+
+    function addDealFromForm() {
+      const type = document.getElementById("type").value;
+      const amount = parseFloat(document.getElementById("amount").value);
+      const currency = document.getElementById("currency").value;
+      const price = parseFloat(document.getElementById("price").value);
+      const note = document.getElementById("note").value;
+
+      if (!amount || !price || !currency) return alert("Заполните все поля");
+
+      const newDeal = {
+        id: nextId++,
+        type,
+        amount,
+        currency,
+        price,
+        note,
+        date: new Date().toLocaleString()
+      };
+
+      deals.push(newDeal);
+      saveDeals();
+      renderDeals(document.getElementById('typeFilter').value);
+
+      document.getElementById("amount").value = "";
+      document.getElementById("price").value = "";
+      document.getElementById("note").value = "";
+    }
+
+    document.getElementById('addDeal').addEventListener('click', addDealFromForm);
+    document.getElementById('applyFilter').addEventListener('click', () => {
+      const filterType = document.getElementById('typeFilter').value;
+      renderDeals(filterType);
+    });
+    document.getElementById('resetFilter').addEventListener('click', () => {
+      document.getElementById('typeFilter').value = '';
+      renderDeals();
+    });
+
+    renderDeals();
+  </script>
+</body>
+</html>
