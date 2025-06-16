@@ -62,15 +62,17 @@
       flex: 1;
     }
 
-    .circle-controls {
-      margin-top: 0.5rem;
-      display: flex;
-      gap: 0.5rem;
+    .quick-buttons button {
+      margin-right: 0.3rem;
+      margin-bottom: 0.5rem;
+      width: auto;
+      padding: 0.5rem 1rem;
     }
 
-    .circle-controls button {
-      font-size: 0.8rem;
-      padding: 0.3rem;
+    .circle-actions {
+      margin-top: 0.5rem;
+      display: flex;
+      gap: 0.3rem;
     }
 
     @media (max-width: 480px) {
@@ -88,6 +90,9 @@
   <div class="container">
     <h1>P2P-сделка</h1>
 
+    <label for="circleSelect">Выбрать круг</label>
+    <select id="circleSelect"></select>
+
     <label for="type">Тип сделки</label>
     <select id="type">
       <option value="buy">Покупка</option>
@@ -95,7 +100,13 @@
     </select>
 
     <label for="amount">Сумма</label>
-    <input type="number" id="amount" placeholder="Введите сумму (₽)">
+    <input type="number" id="amount" placeholder="Введите сумму (₽)" autofocus>
+
+    <div class="quick-buttons">
+      <button onclick="adjustAmount(1)">+1</button>
+      <button onclick="adjustAmount(10)">+10</button>
+      <button onclick="adjustAmount(100)">+100</button>
+    </div>
 
     <label for="currency">Валюта</label>
     <input type="text" id="currency" placeholder="Пример: USDT">
@@ -111,7 +122,8 @@
       <button id="addDeal">Добавить сделку</button>
     </div>
 
-    <div id="output"></div>
+    <button onclick="startVoiceInput()">🎤 Голосовой ввод</button>
+
     <div id="circles"></div>
   </div>
 
@@ -120,6 +132,22 @@
 
     function saveCircles() {
       localStorage.setItem("p2pCircles", JSON.stringify(circles));
+    }
+
+    function adjustAmount(val) {
+      const input = document.getElementById("amount");
+      input.value = parseFloat(input.value || 0) + val;
+    }
+
+    function updateCircleSelect() {
+      const select = document.getElementById("circleSelect");
+      select.innerHTML = "";
+      circles.forEach((circle, i) => {
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent = `Круг #${i + 1} (${circle.closed ? 'Закрыт' : 'Открыт'})`;
+        select.appendChild(option);
+      });
     }
 
     document.getElementById("suggestNote").addEventListener("click", () => {
@@ -153,22 +181,23 @@
         return alert("Пожалуйста, заполните все поля.");
       }
 
-      let currentCircle = circles[circles.length - 1];
+      let selectedIndex = parseInt(document.getElementById("circleSelect").value);
+      let currentCircle = circles[selectedIndex];
 
-      if (type === "buy" || !currentCircle || currentCircle.closed) {
+      if (type === "buy") {
         currentCircle = {
           id: Date.now(),
           buyAmount: amount,
           remaining: amount,
-          currency: currency,
-          price: price,
-          note: note,
-          buys: [{ amount, currency, price, note }],
           sells: [],
           closed: false
         };
         circles.push(currentCircle);
+        updateCircleSelect();
       } else {
+        if (!currentCircle || currentCircle.closed) {
+          return alert("Выберите активный круг для продажи");
+        }
         currentCircle.remaining -= amount;
         currentCircle.sells.push({ amount, currency, price, note });
         if (currentCircle.remaining <= 0) {
@@ -186,9 +215,10 @@
     });
 
     function deleteCircle(index) {
-      if (confirm("Удалить круг #" + (index + 1) + "?")) {
+      if (confirm("Удалить этот круг?")) {
         circles.splice(index, 1);
         saveCircles();
+        updateCircleSelect();
         updateCirclesUI();
       }
     }
@@ -209,13 +239,27 @@
           Статус: ${circle.closed ? "✅ Закрыт" : "🕓 В процессе"}<br>
           Прогресс: <progress max="${circle.buyAmount}" value="${circle.buyAmount - circle.remaining}"></progress>
           <ul>${circle.sells.map(s => `<li>Продажа: ${s.amount}₽ — ${s.currency} по ${s.price} (${s.note})</li>`).join('')}</ul>
-          <div class="circle-controls">
-            <button onclick="deleteCircle(${index})">Удалить</button>
+          <div class="circle-actions">
+            <button onclick="deleteCircle(${index})">🗑️ Удалить</button>
           </div>`;
         container.appendChild(div);
       });
     }
 
+    function startVoiceInput() {
+      if (!('webkitSpeechRecognition' in window)) {
+        alert("Ваш браузер не поддерживает голосовой ввод");
+        return;
+      }
+      const recognition = new webkitSpeechRecognition();
+      recognition.lang = "ru-RU";
+      recognition.start();
+      recognition.onresult = function(event) {
+        document.getElementById("note").value = event.results[0][0].transcript;
+      };
+    }
+
+    updateCircleSelect();
     updateCirclesUI();
   </script>
 </body>
