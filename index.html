@@ -105,7 +105,11 @@
   </div>
 
   <script>
-    let circles = [];
+    let circles = JSON.parse(localStorage.getItem("p2pCircles") || "[]");
+
+    function saveCircles() {
+      localStorage.setItem("p2pCircles", JSON.stringify(circles));
+    }
 
     document.getElementById("suggestNote").addEventListener("click", () => {
       const type = document.getElementById("type").value;
@@ -113,15 +117,14 @@
       const currency = document.getElementById("currency").value;
       const price = parseFloat(document.getElementById("price").value);
 
-      if (!amount || !price || !currency) {
+      if (!amount  !price  !currency) {
         return alert("Заполните сумму, валюту и цену");
       }
 
-      // Пример локальной генерации AI-подсказки
       const suggestions = [
-        `Сделка через ${currency}, цена: ${price}`,
-        `Выгодная ${type === 'buy' ? 'покупка' : 'продажа'} ${currency} по ${price}₽`,
-        `${currency.toUpperCase()} ${type === 'buy' ? 'куплено' : 'продано'} на ${amount}₽`
+        Сделка через ${currency}, цена: ${price},
+        Выгодная ${type === 'buy' ? 'покупка' : 'продажа'} ${currency} по ${price}₽,
+        ${currency.toUpperCase()} ${type === 'buy' ? 'куплено' : 'продано'} на ${amount}₽
       ];
 
       const note = suggestions[Math.floor(Math.random() * suggestions.length)];
@@ -135,13 +138,13 @@
       const price = parseFloat(document.getElementById("price").value);
       const note = document.getElementById("note").value;
 
-      if (!amount || !currency || !price) {
+      if (!amount  !currency  !price) {
         return alert("Пожалуйста, заполните все поля.");
       }
 
       let currentCircle = circles[circles.length - 1];
 
-      if (type === "buy" || !currentCircle || currentCircle.closed) {
+      if (type === "buy"  !currentCircle  currentCircle.closed) {
         currentCircle = {
           id: Date.now(),
           buyAmount: amount,
@@ -158,6 +161,7 @@
         }
       }
 
+      saveCircles();
       updateCirclesUI();
 
       document.getElementById("amount").value = "";
@@ -181,10 +185,12 @@
           Продано: ${(circle.buyAmount - circle.remaining).toFixed(2)}₽<br>
           Статус: ${circle.closed ? "✅ Закрыт" : "🕓 В процессе"}<br>
           Прогресс: <progress max="${circle.buyAmount}" value="${circle.buyAmount - circle.remaining}"></progress>
-          <ul>${circle.sells.map(s => `<li>Продажа: ${s.amount}₽ — ${s.currency} по ${s.price} (${s.note})</li>`).join('')}</ul>`;
+          <ul>${circle.sells.map(s => <li>Продажа: ${s.amount}₽ — ${s.currency} по ${s.price} (${s.note})</li>`).join('')}</ul>;
         container.appendChild(div);
       });
     }
+
+    updateCirclesUI();
   </script>
 </body>
 </html>
