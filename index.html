@@ -132,44 +132,47 @@
     });
 
     document.getElementById("addDeal").addEventListener("click", () => {
-      const type = document.getElementById("type").value;
-      const amount = parseFloat(document.getElementById("amount").value);
-      const currency = document.getElementById("currency").value;
-      const price = parseFloat(document.getElementById("price").value);
-      const note = document.getElementById("note").value;
+  const type = document.getElementById("type").value;
+  const amount = parseFloat(document.getElementById("amount").value);
+  const currency = document.getElementById("currency").value;
+  const price = parseFloat(document.getElementById("price").value);
+  const note = document.getElementById("note").value;
 
-      if (!amount  !currency  !price) {
-        return alert("Пожалуйста, заполните все поля.");
-      }
+  if (!amount  !currency  !price) {
+    return alert("Пожалуйста, заполните все поля.");
+  }
 
-      let currentCircle = circles[circles.length - 1];
+  let currentCircle = circles[circles.length - 1];
 
-      if (type === "buy"  !currentCircle  currentCircle.closed) {
-        currentCircle = {
-          id: Date.now(),
-          buyAmount: amount,
-          remaining: amount,
-          sells: [],
-          closed: false
-        };
-        circles.push(currentCircle);
-      } else {
-        currentCircle.remaining -= amount;
-        currentCircle.sells.push({ amount, currency, price, note });
-        if (currentCircle.remaining <= 0) {
-          currentCircle.closed = true;
-        }
-      }
+  if (type === "buy"  !currentCircle  currentCircle.closed) {
+    currentCircle = {
+      id: Date.now(),
+      buyAmount: amount,
+      remaining: amount,
+      currency: currency,
+      price: price,
+      note: note,
+      buys: [{ amount, currency, price, note }],
+      sells: [],
+      closed: false
+    };
+    circles.push(currentCircle);
+  } else {
+    currentCircle.remaining -= amount;
+    currentCircle.sells.push({ amount, currency, price, note });
+    if (currentCircle.remaining <= 0) {
+      currentCircle.closed = true;
+    }
+  }
 
-      saveCircles();
-      updateCirclesUI();
+  saveCircles();
+  updateCirclesUI();
 
-      document.getElementById("amount").value = "";
-      document.getElementById("currency").value = "";
-      document.getElementById("price").value = "";
-      document.getElementById("note").value = "";
-    });
-
+  document.getElementById("amount").value = "";
+  document.getElementById("currency").value = "";
+  document.getElementById("price").value = "";
+  document.getElementById("note").value = "";
+});
     function updateCirclesUI() {
       const container = document.getElementById("circles");
       container.innerHTML = "";
