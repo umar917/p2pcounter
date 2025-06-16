@@ -1,257 +1,190 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>P2P Counter</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    :root {
-      --bg-color: #121212;
-      --card-color: #1e1e1e;
-      --accent: #4caf50;
-      --text-color: #eee;
-      --border-color: #333;
-      --hover: #2a2a2a;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
     body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
       margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: var(--bg-color);
-      color: var(--text-color);
-      padding: 16px;
-      font-size: 16px;
+      padding: 1rem;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.05);
     }
 
     h1 {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 1.5rem;
     }
 
-    .container {
-      max-width: 1200px;
-      margin: auto;
+    label {
+      display: block;
+      margin-top: 1rem;
+      margin-bottom: 0.3rem;
     }
 
-    .controls, .form, .round-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      justify-content: space-between;
-      margin-bottom: 20px;
-    }
-
-    select, button, input {
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      background-color: var(--card-color);
-      color: var(--text-color);
-      cursor: pointer;
-      font-size: 16px;
-    }
-
-    button:hover, select:hover, input:hover {
-      background-color: var(--hover);
-    }
-
-    .round {
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      margin-bottom: 20px;
-      padding: 12px;
-      background: #1a1a1a;
-    }
-
-    .round h3 {
-      margin-top: 0;
-    }
-
-    .round table {
+    input, select, button {
       width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
+      padding: 0.7rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      box-sizing: border-box;
     }
 
-    .round th, .round td {
-      padding: 10px;
-      border-bottom: 1px solid var(--border-color);
+    button {
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      cursor: pointer;
     }
 
-    .round tr:nth-child(even) {
-      background-color: #191919;
+    button:hover {
+      background-color: #357ab8;
     }
 
-    @media (max-width: 768px) {
-      table, thead, tbody, th, td, tr {
-        display: block;
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .actions button {
+      flex: 1;
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 1.5rem;
       }
 
-      thead {
-        display: none;
-      }
-
-      td {
-        position: relative;
-        padding-left: 50%;
-        border: none;
-        border-bottom: 1px solid var(--border-color);
-      }
-
-      td::before {
-        content: attr(data-label);
-        position: absolute;
-        left: 10px;
-        font-weight: bold;
-        color: #aaa;
+      input, select, button {
+        font-size: 0.95rem;
       }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Учет P2P-сделок</h1>
+    <h1>P2P-сделка</h1>
 
-    <div class="round-controls">
-      <button id="newRound">Открыть новый круг</button>
-    </div>
+    <label for="type">Тип сделки</label>
+    <select id="type">
+      <option value="buy">Покупка</option>
+      <option value="sell">Продажа</option>
+    </select>
 
-    <div class="form">
-      <select id="type">
-        <option value="buy">Покупка</option>
-        <option value="sell">Продажа</option>
-      </select>
-      <input type="number" id="amount" placeholder="Сумма">
-      <input type="text" id="currency" placeholder="Валюта" value="USDT">
-      <input type="number" id="price" placeholder="Цена">
-      <input type="text" id="note" placeholder="Примечание">
+    <label for="amount">Сумма</label>
+    <input type="number" id="amount" placeholder="Введите сумму (₽)">
+
+    <label for="currency">Валюта</label>
+    <input type="text" id="currency" placeholder="Пример: USDT">
+
+    <label for="price">Цена за единицу</label>
+    <input type="number" id="price" placeholder="Введите цену">
+
+    <label for="note">Примечание</label>
+    <input type="text" id="note" placeholder="Например, Bybit / Binance">
+
+    <div class="actions">
+      <button id="suggestNote">AI-подсказка</button>
       <button id="addDeal">Добавить сделку</button>
     </div>
 
-    <div id="roundsContainer"></div>
+    <div id="output"></div>
+    <div id="circles"></div>
   </div>
 
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.ready && tg.expand();
+    let circles = [];
 
-    let rounds = JSON.parse(localStorage.getItem("rounds") || "[]");
-    let currentRoundId = localStorage.getItem("currentRoundId") || null;
-    let nextDealId = 1;
+    document.getElementById("suggestNote").addEventListener("click", () => {
+      const type = document.getElementById("type").value;
+      const amount = parseFloat(document.getElementById("amount").value);
+      const currency = document.getElementById("currency").value;
+      const price = parseFloat(document.getElementById("price").value);
 
-    function saveRounds() {
-      localStorage.setItem("rounds", JSON.stringify(rounds));
-      localStorage.setItem("currentRoundId", currentRoundId);
-    }
+      if (!amount || !price || !currency) {
+        return alert("Заполните сумму, валюту и цену");
+      }
 
-    function createNewRound() {
-      const id = Date.now();
-      const round = {
-        id,
-        deals: []
-      };
-      rounds.push(round);
-      currentRoundId = id;
-      saveRounds();
-      renderRounds();
-    }
+      // Пример локальной генерации AI-подсказки
+      const suggestions = [
+        `Сделка через ${currency}, цена: ${price}`,
+        `Выгодная ${type === 'buy' ? 'покупка' : 'продажа'} ${currency} по ${price}₽`,
+        `${currency.toUpperCase()} ${type === 'buy' ? 'куплено' : 'продано'} на ${amount}₽`
+      ];
 
-    function addDeal() {
+      const note = suggestions[Math.floor(Math.random() * suggestions.length)];
+      document.getElementById("note").value = note;
+    });
+
+    document.getElementById("addDeal").addEventListener("click", () => {
       const type = document.getElementById("type").value;
       const amount = parseFloat(document.getElementById("amount").value);
       const currency = document.getElementById("currency").value;
       const price = parseFloat(document.getElementById("price").value);
       const note = document.getElementById("note").value;
 
-      if (!amount  !price  !currency || !currentRoundId) return alert("Заполните все поля и откройте круг");
-
-      const deal = {
-        id: nextDealId++,
-        type,
-        amount,
-        currency,
-        price,
-        note,
-        date: new Date().toLocaleString()
-      };
-
-      const round = rounds.find(r => r.id == currentRoundId);
-      if (round) {
-        round.deals.push(deal);
-        saveRounds();
-        renderRounds();
+      if (!amount || !currency || !price) {
+        return alert("Пожалуйста, заполните все поля.");
       }
+
+      let currentCircle = circles[circles.length - 1];
+
+      if (type === "buy" || !currentCircle || currentCircle.closed) {
+        currentCircle = {
+          id: Date.now(),
+          buyAmount: amount,
+          remaining: amount,
+          sells: [],
+          closed: false
+        };
+        circles.push(currentCircle);
+      } else {
+        currentCircle.remaining -= amount;
+        currentCircle.sells.push({ amount, currency, price, note });
+        if (currentCircle.remaining <= 0) {
+          currentCircle.closed = true;
+        }
+      }
+
+      updateCirclesUI();
 
       document.getElementById("amount").value = "";
+      document.getElementById("currency").value = "";
       document.getElementById("price").value = "";
       document.getElementById("note").value = "";
-    }
+    });
 
-    function deleteDeal(roundId, dealId) {
-      const round = rounds.find(r => r.id == roundId);
-      if (round) {
-        round.deals = round.deals.filter(d => d.id !== dealId);
-        saveRounds();
-        renderRounds();
-      }
-    }
+    function updateCirclesUI() {
+      const container = document.getElementById("circles");
+      container.innerHTML = "";
 
-    function renderRounds() {
-      const container = document.getElementById("roundsContainer");
-      container.innerHTML = '';
-
-      rounds.forEach(round => {
+      circles.forEach((circle, index) => {
         const div = document.createElement("div");
-        div.className = "round";
-
-        const totalBuy = round.deals.filter(d => d.type === 'buy').reduce((sum, d) => sum + d.amount * d.price, 0);
-        const totalSell = round.deals.filter(d => d.type === 'sell').reduce((sum, d) => sum + d.amount * d.price, 0);
-        const profit = (totalSell - totalBuy).toFixed(2);
-
-        div.innerHTML = `
-          <h3>Круг #${round.id} — Прибыль: ${profit} ₽</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Тип</th>
-                <th>Сумма</th>
-                <th>Цена</th>
-                <th>Примечание</th>
-                <th>Дата</th>
-                <th>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${round.deals.map(deal => `
-                <tr>
-                  <td data-label="ID">${deal.id}</td>
-                  <td data-label="Тип">${deal.type}</td>
-                  <td data-label="Сумма">${deal.amount}</td>
-                  <td data-label="Цена">${deal.price}</td>
-                  <td data-label="Примечание">${deal.note}</td>
-                  <td data-label="Дата">${deal.date}</td>
-                  <td data-label="Действия">
-                    <button onclick="deleteDeal(${round.id}, ${deal.id})">Удалить</button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        `;
+        div.style.border = "1px solid #ccc";
+        div.style.borderRadius = "8px";
+        div.style.padding = "1rem";
+        div.style.marginTop = "1rem";
+        div.innerHTML = `<strong>Круг #${index + 1}</strong><br>
+          Покупка: ${circle.buyAmount}₽<br>
+          Продано: ${(circle.buyAmount - circle.remaining).toFixed(2)}₽<br>
+          Статус: ${circle.closed ? "✅ Закрыт" : "🕓 В процессе"}<br>
+          Прогресс: <progress max="${circle.buyAmount}" value="${circle.buyAmount - circle.remaining}"></progress>
+          <ul>${circle.sells.map(s => `<li>Продажа: ${s.amount}₽ — ${s.currency} по ${s.price} (${s.note})</li>`).join('')}</ul>`;
         container.appendChild(div);
       });
     }
-
-    document.getElementById("addDeal").addEventListener("click", addDeal);
-    document.getElementById("newRound").addEventListener("click", createNewRound);
-
-    renderRounds();
   </script>
 </body>
 </html>
