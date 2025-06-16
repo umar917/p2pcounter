@@ -170,4 +170,88 @@
 
       if (!amount  !price  !currency || !currentRoundId) return alert("Заполните все поля и откройте круг");
 
-      const deal
+      const deal = {
+        id: nextDealId++,
+        type,
+        amount,
+        currency,
+        price,
+        note,
+        date: new Date().toLocaleString()
+      };
+
+      const round = rounds.find(r => r.id == currentRoundId);
+      if (round) {
+        round.deals.push(deal);
+        saveRounds();
+        renderRounds();
+      }
+
+      document.getElementById("amount").value = "";
+      document.getElementById("price").value = "";
+      document.getElementById("note").value = "";
+    }
+
+    function deleteDeal(roundId, dealId) {
+      const round = rounds.find(r => r.id == roundId);
+      if (round) {
+        round.deals = round.deals.filter(d => d.id !== dealId);
+        saveRounds();
+        renderRounds();
+      }
+    }
+
+    function renderRounds() {
+      const container = document.getElementById("roundsContainer");
+      container.innerHTML = '';
+
+      rounds.forEach(round => {
+        const div = document.createElement("div");
+        div.className = "round";
+
+        const totalBuy = round.deals.filter(d => d.type === 'buy').reduce((sum, d) => sum + d.amount * d.price, 0);
+        const totalSell = round.deals.filter(d => d.type === 'sell').reduce((sum, d) => sum + d.amount * d.price, 0);
+        const profit = (totalSell - totalBuy).toFixed(2);
+
+        div.innerHTML = `
+          <h3>Круг #${round.id} — Прибыль: ${profit} ₽</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Тип</th>
+                <th>Сумма</th>
+                <th>Цена</th>
+                <th>Примечание</th>
+                <th>Дата</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${round.deals.map(deal => `
+                <tr>
+                  <td data-label="ID">${deal.id}</td>
+                  <td data-label="Тип">${deal.type}</td>
+                  <td data-label="Сумма">${deal.amount}</td>
+                  <td data-label="Цена">${deal.price}</td>
+                  <td data-label="Примечание">${deal.note}</td>
+                  <td data-label="Дата">${deal.date}</td>
+                  <td data-label="Действия">
+                    <button onclick="deleteDeal(${round.id}, ${deal.id})">Удалить</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    document.getElementById("addDeal").addEventListener("click", addDeal);
+    document.getElementById("newRound").addEventListener("click", createNewRound);
+
+    renderRounds();
+  </script>
+</body>
+</html>
