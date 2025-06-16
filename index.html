@@ -75,6 +75,16 @@
       gap: 0.3rem;
     }
 
+    .analytics {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #ddd;
+    }
+
+    .analytics h3 {
+      margin-top: 0;
+    }
+
     @media (max-width: 480px) {
       h1 {
         font-size: 1.5rem;
@@ -123,8 +133,10 @@
     </div>
 
     <button onclick="startVoiceInput()">🎤 Голосовой ввод</button>
+    <button onclick="exportCSV()">📤 Экспорт CSV</button>
 
     <div id="circles"></div>
+    <div class="analytics" id="analytics"></div>
   </div>
 
   <script>
@@ -190,7 +202,8 @@
           buyAmount: amount,
           remaining: amount,
           sells: [],
-          closed: false
+          closed: false,
+          createdAt: Date.now()
         };
         circles.push(currentCircle);
         updateCircleSelect();
@@ -207,6 +220,7 @@
 
       saveCircles();
       updateCirclesUI();
+      updateAnalytics();
 
       document.getElementById("amount").value = "";
       document.getElementById("currency").value = "";
@@ -220,6 +234,22 @@
         saveCircles();
         updateCircleSelect();
         updateCirclesUI();
+        updateAnalytics();
+      }
+    }
+
+    function editCircle(index) {
+      const newAmount = prompt("Введите новую сумму покупки:", circles[index].buyAmount);
+      const val = parseFloat(newAmount);
+      if (!isNaN(val) && val > 0) {
+        circles[index].buyAmount = val;
+        if (circles[index].remaining > val) {
+          circles[index].remaining = val;
+        }
+        circles[index].closed = circles[index].remaining <= 0;
+        saveCircles();
+        updateCirclesUI();
+        updateAnalytics();
       }
     }
 
@@ -228,6 +258,17 @@
       container.innerHTML = "";
 
       circles.forEach((circle, index) => {
+        const progress = circle.buyAmount - circle.remaining;
+        const percent = (progress / circle.buyAmount) * 100;
+        let color = "#ccc";
+        if (percent >= 100) color = "green";
+        else if (percent >= 50) color = "orange";
+
+        const progressHTML = `<div style="margin: 0.3rem 0">
+          <progress max="${circle.buyAmount}" value="${progress}" style="width: 100%; accent-color: ${color};"></progress>
+          <small>${percent.toFixed(1)}%</small>
+        </div>`;
+
         const div = document.createElement("div");
         div.style.border = "1px solid #ccc";
         div.style.borderRadius = "8px";
@@ -237,13 +278,44 @@
           Покупка: ${circle.buyAmount}₽<br>
           Продано: ${(circle.buyAmount - circle.remaining).toFixed(2)}₽<br>
           Статус: ${circle.closed ? "✅ Закрыт" : "🕓 В процессе"}<br>
-          Прогресс: <progress max="${circle.buyAmount}" value="${circle.buyAmount - circle.remaining}"></progress>
+          Прогресс: ${progressHTML}
           <ul>${circle.sells.map(s => `<li>Продажа: ${s.amount}₽ — ${s.currency} по ${s.price} (${s.note})</li>`).join('')}</ul>
           <div class="circle-actions">
+            <button onclick="editCircle(${index})">✏️ Изменить</button>
             <button onclick="deleteCircle(${index})">🗑️ Удалить</button>
           </div>`;
         container.appendChild(div);
       });
+    }
+
+    function updateAnalytics() {
+      const block = document.getElementById("analytics");
+      let totalBuys = 0, totalSells = 0;
+      circles.forEach(c => {
+        totalBuys += c.buyAmount;
+        totalSells += (c.buyAmount - c.remaining);
+      });
+      block.innerHTML = `<h3>Отчёт</h3>
+        <p>Всего кругов: ${circles.length}</p>
+        <p>Общая сумма покупок: ${totalBuys.toFixed(2)}₽</p>
+        <p>Общая сумма продаж: ${totalSells.toFixed(2)}₽</p>
+        <p>Открытые круги: ${circles.filter(c => !c.closed).length}</p>
+        <p>Закрытые круги: ${circles.filter(c => c.closed).length}</p>`;
+    }
+
+    function exportCSV() {
+      let csv = "Круг,Тип,Сумма,Валюта,Цена,Примечание\n";
+      circles.forEach((c, i) => {
+        csv += `${i + 1},Покупка,${c.buyAmount},,,\n`;
+        c.sells.forEach(s => {
+          csv += `${i + 1},Продажа,${s.amount},${s.currency},${s.price},${s.note}\n`;
+        });
+      });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "p2p_circles.csv";
+      link.click();
     }
 
     function startVoiceInput() {
@@ -259,8 +331,21 @@
       };
     }
 
+    // Reminder checker every 5 minutes
+    setInterval(() => {
+      const now = Date.now();
+      circles.forEach((c, i) => {
+        if (!c.closed && now - c.createdAt > 3 * 60 * 60 * 1000 && !c.warned) {
+          alert(`Круг #${i + 1} открыт более 3 часов!`);
+          c.warned = true;
+        }
+      });
+      saveCircles();
+    }, 5 * 60 * 1000);
+
     updateCircleSelect();
     updateCirclesUI();
+    updateAnalytics();
   </script>
 </body>
 </html>
