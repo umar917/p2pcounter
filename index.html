@@ -13,7 +13,7 @@
     }
 
     .container {
-      max-width: 600px;
+      max-width: 800px;
       margin: auto;
       background: white;
       padding: 1.5rem;
@@ -56,6 +56,7 @@
     .actions {
       display: flex;
       gap: 0.5rem;
+      flex-wrap: wrap;
     }
 
     .actions button {
@@ -85,6 +86,16 @@
       margin-top: 0;
     }
 
+    .type-buttons button {
+      width: 48%;
+      margin-right: 2%;
+    }
+
+    .currency-buttons button {
+      margin-right: 0.3rem;
+      margin-bottom: 0.5rem;
+    }
+
     @media (max-width: 480px) {
       h1 {
         font-size: 1.5rem;
@@ -96,18 +107,20 @@
     }
   </style>
 </head>
-<body>
+<body onclick="document.activeElement.blur();">
   <div class="container">
     <h1>P2P-сделка</h1>
 
     <label for="circleSelect">Выбрать круг</label>
     <select id="circleSelect"></select>
 
-    <label for="type">Тип сделки</label>
-    <select id="type">
-      <option value="buy">Покупка</option>
-      <option value="sell">Продажа</option>
-    </select>
+    <label>Тип сделки</label>
+    <div class="type-buttons">
+      <button onclick="setType('buy')">Покупка</button>
+      <button onclick="setType('sell')">Продажа</button>
+    </div>
+
+    <input type="hidden" id="type" value="buy">
 
     <label for="amount">Сумма</label>
     <input type="number" id="amount" placeholder="Введите сумму (₽)" autofocus>
@@ -118,11 +131,22 @@
       <button onclick="adjustAmount(100)">+100</button>
     </div>
 
-    <label for="currency">Валюта</label>
+    <label>Валюта</label>
+    <div class="currency-buttons">
+      <button onclick="setCurrency('USDT')">USDT</button>
+      <button onclick="setCurrency('BTC')">BTC</button>
+      <button onclick="setCurrency('ETH')">ETH</button>
+      <button onclick="setCurrency('TON')">TON</button>
+    </div>
     <input type="text" id="currency" placeholder="Пример: USDT">
 
     <label for="price">Цена за единицу</label>
     <input type="number" id="price" placeholder="Введите цену">
+    <div class="quick-buttons">
+      <button onclick="adjustPrice(1)">+1</button>
+      <button onclick="adjustPrice(10)">+10</button>
+      <button onclick="adjustPrice(100)">+100</button>
+    </div>
 
     <label for="note">Примечание</label>
     <input type="text" id="note" placeholder="Например, Bybit / Binance">
@@ -133,7 +157,6 @@
     </div>
 
     <button onclick="startVoiceInput()">🎤 Голосовой ввод</button>
-    <button onclick="exportCSV()">📤 Экспорт CSV</button>
 
     <div id="circles"></div>
     <div class="analytics" id="analytics"></div>
@@ -149,6 +172,19 @@
     function adjustAmount(val) {
       const input = document.getElementById("amount");
       input.value = parseFloat(input.value || 0) + val;
+    }
+
+    function adjustPrice(val) {
+      const input = document.getElementById("price");
+      input.value = parseFloat(input.value || 0) + val;
+    }
+
+    function setCurrency(value) {
+      document.getElementById("currency").value = value;
+    }
+
+    function setType(value) {
+      document.getElementById("type").value = value;
     }
 
     function updateCircleSelect() {
@@ -203,7 +239,7 @@
           remaining: amount,
           sells: [],
           closed: false,
-          createdAt: Date.now()
+          createdAt: new Date().toISOString()
         };
         circles.push(currentCircle);
         updateCircleSelect();
@@ -238,36 +274,17 @@
       }
     }
 
-    function editCircle(index) {
-      const newAmount = prompt("Введите новую сумму покупки:", circles[index].buyAmount);
-      const val = parseFloat(newAmount);
-      if (!isNaN(val) && val > 0) {
-        circles[index].buyAmount = val;
-        if (circles[index].remaining > val) {
-          circles[index].remaining = val;
-        }
-        circles[index].closed = circles[index].remaining <= 0;
-        saveCircles();
-        updateCirclesUI();
-        updateAnalytics();
-      }
-    }
-
     function updateCirclesUI() {
       const container = document.getElementById("circles");
       container.innerHTML = "";
 
+      const now = new Date();
       circles.forEach((circle, index) => {
-        const progress = circle.buyAmount - circle.remaining;
-        const percent = (progress / circle.buyAmount) * 100;
-        let color = "#ccc";
-        if (percent >= 100) color = "green";
-        else if (percent >= 50) color = "orange";
-
-        const progressHTML = `<div style="margin: 0.3rem 0">
-          <progress max="${circle.buyAmount}" value="${progress}" style="width: 100%; accent-color: ${color};"></progress>
-          <small>${percent.toFixed(1)}%</small>
-        </div>`;
+        const created = new Date(circle.createdAt);
+        const hoursOpen = (now - created) / 1000 / 60 / 60;
+        const percent = ((circle.buyAmount - circle.remaining) / circle.buyAmount) * 100;
+        const progressColor = percent >= 100 ? 'green' : percent >= 50 ? 'orange' : 'gray';
+        const alertText = !circle.closed && hoursOpen > 3 ? '<span style="color:red">⚠️ Давно не закрыт</span>' : '';
 
         const div = document.createElement("div");
         div.style.border = "1px solid #ccc";
@@ -277,11 +294,10 @@
         div.innerHTML = `<strong>Круг #${index + 1}</strong><br>
           Покупка: ${circle.buyAmount}₽<br>
           Продано: ${(circle.buyAmount - circle.remaining).toFixed(2)}₽<br>
-          Статус: ${circle.closed ? "✅ Закрыт" : "🕓 В процессе"}<br>
-          Прогресс: ${progressHTML}
+          Статус: ${circle.closed ? "✅ Закрыт" : "🕓 В процессе"} ${alertText}<br>
+          Прогресс: <progress max="${circle.buyAmount}" value="${circle.buyAmount - circle.remaining}" style="accent-color: ${progressColor}"></progress>
           <ul>${circle.sells.map(s => `<li>Продажа: ${s.amount}₽ — ${s.currency} по ${s.price} (${s.note})</li>`).join('')}</ul>
           <div class="circle-actions">
-            <button onclick="editCircle(${index})">✏️ Изменить</button>
             <button onclick="deleteCircle(${index})">🗑️ Удалить</button>
           </div>`;
         container.appendChild(div);
@@ -303,21 +319,6 @@
         <p>Закрытые круги: ${circles.filter(c => c.closed).length}</p>`;
     }
 
-    function exportCSV() {
-      let csv = "Круг,Тип,Сумма,Валюта,Цена,Примечание\n";
-      circles.forEach((c, i) => {
-        csv += `${i + 1},Покупка,${c.buyAmount},,,\n`;
-        c.sells.forEach(s => {
-          csv += `${i + 1},Продажа,${s.amount},${s.currency},${s.price},${s.note}\n`;
-        });
-      });
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "p2p_circles.csv";
-      link.click();
-    }
-
     function startVoiceInput() {
       if (!('webkitSpeechRecognition' in window)) {
         alert("Ваш браузер не поддерживает голосовой ввод");
@@ -330,18 +331,6 @@
         document.getElementById("note").value = event.results[0][0].transcript;
       };
     }
-
-    // Reminder checker every 5 minutes
-    setInterval(() => {
-      const now = Date.now();
-      circles.forEach((c, i) => {
-        if (!c.closed && now - c.createdAt > 3 * 60 * 60 * 1000 && !c.warned) {
-          alert(`Круг #${i + 1} открыт более 3 часов!`);
-          c.warned = true;
-        }
-      });
-      saveCircles();
-    }, 5 * 60 * 1000);
 
     updateCircleSelect();
     updateCirclesUI();
